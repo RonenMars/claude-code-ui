@@ -73,9 +73,9 @@ export function KanbanColumn({ title, sessions, color }: KanbanColumnProps) {
         borderRadius: "var(--radius-4)",
         border: `1px solid var(--${color === "gray" ? "slate" : color === "green" ? "grass" : color === "yellow" ? "amber" : "orange"}-6)`,
       }}
-      p="3"
+      p="1"
     >
-      <Flex direction="column" gap="3" style={{ height: "100%" }}>
+      <Flex direction="column" gap="1" style={{ height: "100%" }}>
         <Flex justify="between" align="center">
           <Heading
             size="3"
