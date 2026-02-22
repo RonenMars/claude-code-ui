@@ -122,31 +122,31 @@ export function SessionCard({ session, disableHover }: SessionCardProps) {
           <Flex direction="column" gap="1">
             {/* Row 1: path · branch/PR/tool  |  time · msgs */}
             <Flex justify="between" align="center" gap="2">
-              <Flex align="center" gap="1" style={{ minWidth: 0, overflow: "hidden" }}>
+              <Flex align="center" gap="1" minWidth="0" overflow="hidden">
                 <Text
                   size="1"
                   color="gray"
+                  flexShrink="1"
+                  overflow="hidden"
                   style={{
                     fontFamily: "var(--code-font-family)",
                     whiteSpace: "nowrap",
-                    overflow: "hidden",
                     textOverflow: "ellipsis",
-                    flexShrink: 1,
                   }}
                 >
                   {dirPath}
                 </Text>
                 {showPendingTool ? (
                   <>
-                    <Text size="1" color="gray" style={{ flexShrink: 0 }}>·</Text>
-                    <Code size="1" color="orange" variant="soft" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
+                    <Text size="1" color="gray" flexShrink="0">·</Text>
+                    <Code size="1" color="orange" variant="soft" flexShrink="0" style={{ whiteSpace: "nowrap" }}>
                       {toolIcons[session.pendingTool!.tool] ?? "⚙"}{" "}
                       {session.pendingTool!.tool}: {formatTarget(session.pendingTool!.target)}
                     </Code>
                   </>
                 ) : session.pr ? (
                   <>
-                    <Text size="1" color="gray" style={{ flexShrink: 0 }}>·</Text>
+                    <Text size="1" color="gray" flexShrink="0">·</Text>
                     <a
                       href={session.pr.url}
                       target="_blank"
@@ -161,8 +161,8 @@ export function SessionCard({ session, disableHover }: SessionCardProps) {
                   </>
                 ) : session.gitBranch ? (
                   <>
-                    <Text size="1" color="gray" style={{ flexShrink: 0 }}>·</Text>
-                    <Code size="1" variant="soft" color="gray" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
+                    <Text size="1" color="gray" flexShrink="0">·</Text>
+                    <Code size="1" variant="soft" color="gray" flexShrink="0" style={{ whiteSpace: "nowrap" }}>
                       {session.gitBranch.length > 20
                         ? session.gitBranch.slice(0, 17) + "..."
                         : session.gitBranch}
@@ -170,7 +170,7 @@ export function SessionCard({ session, disableHover }: SessionCardProps) {
                   </>
                 ) : null}
               </Flex>
-              <Text size="1" color="gray" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
+              <Text size="1" color="gray" flexShrink="0" style={{ whiteSpace: "nowrap" }}>
                 {formatTimeAgo(session.lastActivityAt)} · {session.messageCount}
               </Text>
             </Flex>
