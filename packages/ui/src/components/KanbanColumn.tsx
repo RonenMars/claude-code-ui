@@ -27,7 +27,9 @@ export function KanbanColumn({ title, sessions, color }: KanbanColumnProps) {
     if (!scrollArea) return;
 
     // Find the actual scrollable viewport inside ScrollArea
-    const viewport = scrollArea.querySelector("[data-radix-scroll-area-viewport]");
+    const viewport = scrollArea.querySelector(
+      "[data-radix-scroll-area-viewport]",
+    );
     if (!viewport) return;
 
     const handleScroll = () => {
@@ -73,9 +75,9 @@ export function KanbanColumn({ title, sessions, color }: KanbanColumnProps) {
         borderRadius: "var(--radius-4)",
         border: `1px solid var(--${color === "gray" ? "slate" : color === "green" ? "grass" : color === "yellow" ? "amber" : "orange"}-6)`,
       }}
-      p="2"
+      p="3"
     >
-      <Flex direction="column" gap="2" style={{ height: "100%" }}>
+      <Flex direction="column" gap="3" style={{ height: "100%" }}>
         <Flex justify="between" align="center">
           <Heading
             size="3"
@@ -92,7 +94,11 @@ export function KanbanColumn({ title, sessions, color }: KanbanColumnProps) {
         <ScrollArea style={{ maxHeight: 420 }} ref={scrollAreaRef}>
           <Flex direction="column" gap="2" pr="2">
             {sessions.map((session) => (
-              <SessionCard key={session.sessionId} session={session} disableHover={isScrolling} />
+              <SessionCard
+                key={session.sessionId}
+                session={session}
+                disableHover={isScrolling}
+              />
             ))}
             {sessions.length === 0 && (
               <Text
