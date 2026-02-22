@@ -81,6 +81,9 @@ export class SessionWatcher extends EventEmitter {
   private debounceTimers = new Map<string, NodeJS.Timeout>();
   private debounceMs: number;
   private staleCheckInterval: NodeJS.Timeout | null = null;
+  private initialScanComplete = false;
+  private initialScanCount = 0;
+  private initializing = true;
 
   constructor(options: { debounceMs?: number } = {}) {
     super();
@@ -135,7 +138,11 @@ export class SessionWatcher extends EventEmitter {
     this.watcher
       .on("add", (path) => {
         if (!path.endsWith(".jsonl")) return;
-        log("Watcher", `New file detected: ${path.split("/").slice(-2).join("/")}`);
+        if (this.initialScanComplete) {
+          log("Watcher", `New file detected: ${path.split("/").slice(-2).join("/")}`);
+        } else {
+          this.initialScanCount++;
+        }
         this.handleFile(path, "add");
       })
       .on("change", (path) => {
@@ -171,11 +178,18 @@ export class SessionWatcher extends EventEmitter {
 
     // Wait for initial scan to complete
     await new Promise<void>((resolve) => {
-      this.watcher!.on("ready", resolve);
+      this.watcher!.on("ready", () => {
+        this.initialScanComplete = true;
+        log("Watcher", `Initial scan complete: ${this.initialScanCount} session files found`);
+        resolve();
+      });
     });
 
-    // Load any existing signal files
+    // Load any existing signal files (silently, no events)
     await this.loadExistingSignals();
+
+    // Initial scan done - future events will be emitted normally
+    this.initializing = false;
 
     // Start periodic stale check to detect sessions that have gone idle
     // This catches cases where the turn ends but no turn_duration event is written
@@ -226,14 +240,14 @@ export class SessionWatcher extends EventEmitter {
 
       if (type === "working") {
         const workingSignal = data as WorkingSignal;
-        log("Watcher", `Working signal for session ${sessionId}`);
+        if (!this.initializing) log("Watcher", `Working signal for session ${sessionId}`);
         this.workingSignals.set(sessionId, workingSignal);
         // Clear stop signal since new turn is starting
         this.stopSignals.delete(sessionId);
 
         // Update session to working
         const session = this.sessions.get(sessionId);
-        if (session) {
+        if (session && !this.initializing) {
           const previousStatus = session.status;
           session.hasWorkingSignal = true;
           session.hasStopSignal = false;
@@ -243,15 +257,19 @@ export class SessionWatcher extends EventEmitter {
             hasPendingToolUse: false,
           };
           this.emit("session", { type: "updated", session, previousStatus } satisfies SessionEvent);
+        } else if (session) {
+          session.hasWorkingSignal = true;
+          session.hasStopSignal = false;
+          session.status = { ...session.status, status: "working", hasPendingToolUse: false };
         }
       } else if (type === "permission") {
         const permission = data as PendingPermission;
-        log("Watcher", `Pending permission for session ${sessionId}: ${permission.tool_name}`);
+        if (!this.initializing) log("Watcher", `Pending permission for session ${sessionId}: ${permission.tool_name}`);
         this.pendingPermissions.set(sessionId, permission);
 
         // Update session if it exists
         const session = this.sessions.get(sessionId);
-        if (session) {
+        if (session && !this.initializing) {
           const previousStatus = session.status;
           session.pendingPermission = permission;
           session.status = {
@@ -260,10 +278,13 @@ export class SessionWatcher extends EventEmitter {
             hasPendingToolUse: true,
           };
           this.emit("session", { type: "updated", session, previousStatus } satisfies SessionEvent);
+        } else if (session) {
+          session.pendingPermission = permission;
+          session.status = { ...session.status, status: "waiting", hasPendingToolUse: true };
         }
       } else if (type === "stop") {
         const stopSignal = data as StopSignal;
-        log("Watcher", `Stop signal for session ${sessionId}`);
+        if (!this.initializing) log("Watcher", `Stop signal for session ${sessionId}`);
         this.stopSignals.set(sessionId, stopSignal);
         // Clear working and permission signals since turn ended
         this.workingSignals.delete(sessionId);
@@ -271,7 +292,7 @@ export class SessionWatcher extends EventEmitter {
 
         // Update session to waiting
         const session = this.sessions.get(sessionId);
-        if (session) {
+        if (session && !this.initializing) {
           const previousStatus = session.status;
           session.hasWorkingSignal = false;
           session.hasStopSignal = true;
@@ -282,10 +303,15 @@ export class SessionWatcher extends EventEmitter {
             hasPendingToolUse: false,
           };
           this.emit("session", { type: "updated", session, previousStatus } satisfies SessionEvent);
+        } else if (session) {
+          session.hasWorkingSignal = false;
+          session.hasStopSignal = true;
+          session.pendingPermission = undefined;
+          session.status = { ...session.status, status: "waiting", hasPendingToolUse: false };
         }
       } else if (type === "ended") {
         const endSignal = data as SessionEndSignal;
-        log("Watcher", `Session ended signal for ${sessionId}`);
+        if (!this.initializing) log("Watcher", `Session ended signal for ${sessionId}`);
         this.endedSignals.set(sessionId, endSignal);
         // Clear all signals for this session
         this.workingSignals.delete(sessionId);
@@ -294,7 +320,7 @@ export class SessionWatcher extends EventEmitter {
 
         // Update session to idle
         const session = this.sessions.get(sessionId);
-        if (session) {
+        if (session && !this.initializing) {
           const previousStatus = session.status;
           session.hasWorkingSignal = false;
           session.hasStopSignal = false;
@@ -306,6 +332,12 @@ export class SessionWatcher extends EventEmitter {
             hasPendingToolUse: false,
           };
           this.emit("session", { type: "updated", session, previousStatus } satisfies SessionEvent);
+        } else if (session) {
+          session.hasWorkingSignal = false;
+          session.hasStopSignal = false;
+          session.hasEndedSignal = true;
+          session.pendingPermission = undefined;
+          session.status = { ...session.status, status: "idle", hasPendingToolUse: false };
         }
       }
     } catch {
@@ -607,17 +639,19 @@ export class SessionWatcher extends EventEmitter {
       const hasStatusChange = statusChanged(previousStatus, status);
       const hasNewMessages = existingSession && status.messageCount > existingSession.status.messageCount;
 
-      if (isNew) {
-        this.emit("session", {
-          type: "created",
-          session,
-        } satisfies SessionEvent);
-      } else if (hasStatusChange || hasNewMessages || branchChanged) {
-        this.emit("session", {
-          type: "updated",
-          session,
-          previousStatus,
-        } satisfies SessionEvent);
+      if (!this.initializing) {
+        if (isNew) {
+          this.emit("session", {
+            type: "created",
+            session,
+          } satisfies SessionEvent);
+        } else if (hasStatusChange || hasNewMessages || branchChanged) {
+          this.emit("session", {
+            type: "updated",
+            session,
+            previousStatus,
+          } satisfies SessionEvent);
+        }
       }
     } catch (error) {
       // Ignore ENOENT errors - file may have been deleted

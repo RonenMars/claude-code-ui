@@ -10,6 +10,9 @@ import jetBrainsMono from "@capsizecss/metrics/jetBrainsMono"
 import arial from "@capsizecss/metrics/arial"
 
 export default defineConfig({
+  server: {
+    open: true,
+  },
   plugins: [
     TanStackRouterVite({
       routesDirectory: "./src/routes",
