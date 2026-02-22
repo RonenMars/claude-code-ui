@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Flex, Text, TextField, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Text, TextField, IconButton } from "@radix-ui/themes";
 import { useEffect, useState } from "react";
 import { RepoSection } from "../components/RepoSection";
 import { useSessions, groupSessionsByRepo } from "../hooks/useSessions";
@@ -35,27 +35,29 @@ function IndexPage() {
   return (
     <Flex direction="column" gap="5">
       {/* Search bar */}
-      <TextField.Root
-        size="2"
-        placeholder="Filter by folder or goal…"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        style={{ maxWidth: 360 }}
-      >
-        {searchTerm && (
-          <TextField.Slot side="right">
-            <IconButton
-              size="1"
-              variant="ghost"
-              color="gray"
-              onClick={() => setSearchTerm("")}
-              aria-label="Clear search"
-            >
-              ✕
-            </IconButton>
-          </TextField.Slot>
-        )}
-      </TextField.Root>
+      <Box maxWidth="360px">
+        <TextField.Root
+          size="2"
+          placeholder="Filter by folder or goal…"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        >
+          {searchTerm.trim() && (
+            <TextField.Slot side="right">
+              <IconButton
+                type="button"
+                size="1"
+                variant="ghost"
+                color="gray"
+                onClick={() => setSearchTerm("")}
+                aria-label="Clear search"
+              >
+                ✕
+              </IconButton>
+            </TextField.Slot>
+          )}
+        </TextField.Root>
+      </Box>
 
       {/* Repo sections (empty ones hidden) */}
       {repoGroups.length === 0 ? (
