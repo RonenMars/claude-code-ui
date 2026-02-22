@@ -1,4 +1,5 @@
 import { useLiveQuery } from "@tanstack/react-db";
+import { ilike, or } from "@tanstack/db";
 import { getSessionsDbSync } from "../data/sessionsDb";
 import type { Session } from "../data/schema";
 
@@ -9,15 +10,26 @@ import type { Session } from "../data/schema";
  * NOTE: This must only be called after the root loader has run,
  * which initializes the db via getSessionsDb().
  */
-export function useSessions() {
+export function useSessions(searchTerm = "") {
   const db = getSessionsDbSync();
+  const term = searchTerm.trim().toLowerCase();
 
   const query = useLiveQuery(
-    (q) =>
-      q
+    (q) => {
+      const base = q
         .from({ sessions: db.collections.sessions })
-        .orderBy(({ sessions }) => sessions.lastActivityAt, "desc"),
-    [db]
+        .orderBy(({ sessions }) => sessions.lastActivityAt, "desc");
+
+      if (!term) return base;
+
+      return base.where(({ sessions }) =>
+        or(
+          ilike(sessions.cwd, `%${term}%`),
+          ilike(sessions.goal, `%${term}%`)
+        )
+      );
+    },
+    [db, term]
   );
 
   // Transform to array of sessions
