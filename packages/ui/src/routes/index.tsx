@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex, Text, TextField, IconButton } from "@radix-ui/themes";
 import { useEffect, useState } from "react";
 import { RepoSection } from "../components/RepoSection";
 import { useSessions, groupSessionsByRepo } from "../hooks/useSessions";
@@ -9,7 +9,8 @@ export const Route = createFileRoute("/")({
 });
 
 function IndexPage() {
-  const { sessions } = useSessions();
+  const [searchTerm, setSearchTerm] = useState("");
+  const { sessions } = useSessions(searchTerm);
 
   // Force re-render every minute to update relative times and activity scores
   const [, setTick] = useState(0);
@@ -18,32 +19,58 @@ function IndexPage() {
     return () => clearInterval(interval);
   }, []);
 
-  if (sessions.length === 0) {
+  const repoGroups = groupSessionsByRepo(sessions).filter(
+    (g) => g.sessions.length > 0
+  );
+
+  if (!searchTerm && sessions.length === 0) {
     return (
       <Flex direction="column" align="center" gap="3" py="9">
-        <Text color="gray" size="3">
-          No sessions found
-        </Text>
-        <Text color="gray" size="2">
-          Start a Claude Code session to see it here
-        </Text>
+        <Text color="gray" size="3">No sessions found</Text>
+        <Text color="gray" size="2">Start a Claude Code session to see it here</Text>
       </Flex>
     );
   }
 
-  const repoGroups = groupSessionsByRepo(sessions);
-
   return (
-    <Flex direction="column">
-      {repoGroups.map((group) => (
-        <RepoSection
-          key={group.repoId}
-          repoId={group.repoId}
-          repoUrl={group.repoUrl}
-          sessions={group.sessions}
-          activityScore={group.activityScore}
-        />
-      ))}
+    <Flex direction="column" gap="5">
+      {/* Search bar */}
+      <TextField.Root
+        size="2"
+        placeholder="Filter by folder or goal…"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        style={{ maxWidth: 360 }}
+      >
+        {searchTerm && (
+          <TextField.Slot side="right">
+            <IconButton
+              size="1"
+              variant="ghost"
+              color="gray"
+              onClick={() => setSearchTerm("")}
+              aria-label="Clear search"
+            >
+              ✕
+            </IconButton>
+          </TextField.Slot>
+        )}
+      </TextField.Root>
+
+      {/* Repo sections (empty ones hidden) */}
+      {repoGroups.length === 0 ? (
+        <Text color="gray" size="2">No sessions match "{searchTerm}"</Text>
+      ) : (
+        repoGroups.map((group) => (
+          <RepoSection
+            key={group.repoId}
+            repoId={group.repoId}
+            repoUrl={group.repoUrl}
+            sessions={group.sessions}
+            activityScore={group.activityScore}
+          />
+        ))
+      )}
     </Flex>
   );
 }
