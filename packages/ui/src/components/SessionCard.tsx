@@ -118,66 +118,72 @@ export function SessionCard({ session, disableHover }: SessionCardProps) {
   return (
     <HoverCard.Root openDelay={750} open={disableHover ? false : undefined}>
       <HoverCard.Trigger>
-        <Card size="2" className={getCardClass(session)}>
-          <Flex direction="column" gap="4">
-            {/* Header: directory and time */}
-            <Flex justify="between" align="center">
-              <Text size="1" color="gray" style={{ fontFamily: "var(--code-font-family)" }}>
-                {dirPath}
-              </Text>
-              <Text size="1" color="gray">
-                {formatTimeAgo(session.lastActivityAt)}
-              </Text>
-            </Flex>
-
-            {/* Main content: goal as primary text */}
-            <Heading size="3" weight="medium" highContrast>
-              {session.goal || session.originalPrompt.slice(0, 50)}
-            </Heading>
-
-            {/* Secondary: current activity (pending tool or summary) */}
-            {showPendingTool ? (
-              <Flex align="center" gap="2">
-                <Text size="1" color="gray">
-                  {toolIcons[session.pendingTool!.tool]}
+        <Card size="1" className={getCardClass(session)}>
+          <Flex direction="column" gap="1">
+            {/* Row 1: path · branch/PR/tool  |  time · msgs */}
+            <Flex justify="between" align="center" gap="2">
+              <Flex align="center" gap="1" style={{ minWidth: 0, overflow: "hidden" }}>
+                <Text
+                  size="1"
+                  color="gray"
+                  style={{
+                    fontFamily: "var(--code-font-family)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    flexShrink: 1,
+                  }}
+                >
+                  {dirPath}
                 </Text>
-                <Code size="1" color="orange" variant="soft">
-                  {session.pendingTool!.tool}: {formatTarget(session.pendingTool!.target)}
-                </Code>
-              </Flex>
-            ) : (
-              <Text size="1" color="gray">
-                {session.summary}
-              </Text>
-            )}
-
-            {/* Footer: branch/PR info and message count */}
-            <Flex align="center" justify="between" gap="2">
-              <Flex align="center" gap="2">
-                {session.pr ? (
-                  <a
-                    href={session.pr.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ textDecoration: "none" }}
-                  >
-                    <Badge color={getCIStatusColor(session.pr.ciStatus)} variant="soft" size="1">
-                      {getCIStatusIcon(session.pr.ciStatus)} #{session.pr.number}
-                    </Badge>
-                  </a>
+                {showPendingTool ? (
+                  <>
+                    <Text size="1" color="gray" style={{ flexShrink: 0 }}>·</Text>
+                    <Code size="1" color="orange" variant="soft" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
+                      {toolIcons[session.pendingTool!.tool] ?? "⚙"}{" "}
+                      {session.pendingTool!.tool}: {formatTarget(session.pendingTool!.target)}
+                    </Code>
+                  </>
+                ) : session.pr ? (
+                  <>
+                    <Text size="1" color="gray" style={{ flexShrink: 0 }}>·</Text>
+                    <a
+                      href={session.pr.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ textDecoration: "none", flexShrink: 0 }}
+                    >
+                      <Badge color={getCIStatusColor(session.pr.ciStatus)} variant="soft" size="1">
+                        {getCIStatusIcon(session.pr.ciStatus)} #{session.pr.number}
+                      </Badge>
+                    </a>
+                  </>
                 ) : session.gitBranch ? (
-                  <Code size="1" variant="soft" color="gray">
-                    {session.gitBranch.length > 20
-                      ? session.gitBranch.slice(0, 17) + "..."
-                      : session.gitBranch}
-                  </Code>
+                  <>
+                    <Text size="1" color="gray" style={{ flexShrink: 0 }}>·</Text>
+                    <Code size="1" variant="soft" color="gray" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
+                      {session.gitBranch.length > 20
+                        ? session.gitBranch.slice(0, 17) + "..."
+                        : session.gitBranch}
+                    </Code>
+                  </>
                 ) : null}
               </Flex>
-              <Text size="1" color="gray">
-                {session.messageCount} msgs
+              <Text size="1" color="gray" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
+                {formatTimeAgo(session.lastActivityAt)} · {session.messageCount}
               </Text>
             </Flex>
+
+            {/* Row 2: goal text */}
+            <Text
+              size="2"
+              weight="medium"
+              highContrast
+              style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+            >
+              {session.goal || session.originalPrompt.slice(0, 80)}
+            </Text>
           </Flex>
         </Card>
       </HoverCard.Trigger>
