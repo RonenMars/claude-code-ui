@@ -1,7 +1,28 @@
 import { useLiveQuery } from "@tanstack/react-db";
-import { ilike, or } from "@tanstack/db";
+import { ilike, or, and, inArray, gte, eq, not, isNull } from "@tanstack/db";
 import { getSessionsDbSync } from "../data/sessionsDb";
 import type { Session } from "../data/schema";
+
+export type DateFilter = "today" | "3days" | "week" | "month";
+
+export interface SessionFilters {
+  searchTerm?: string;
+  statuses?: Set<string>;
+  pendingOnly?: boolean;
+  dateFilter?: DateFilter | null;
+  hasPR?: boolean;
+}
+
+function getDateCutoff(filter: DateFilter): string {
+  const now = new Date();
+  if (filter === "today") {
+    now.setHours(0, 0, 0, 0);
+  } else {
+    const days = { "3days": 3, week: 7, month: 30 }[filter];
+    now.setDate(now.getDate() - days);
+  }
+  return now.toISOString();
+}
 
 /**
  * Hook to get all sessions from the StreamDB.
@@ -10,8 +31,15 @@ import type { Session } from "../data/schema";
  * NOTE: This must only be called after the root loader has run,
  * which initializes the db via getSessionsDb().
  */
-export function useSessions(searchTerm = "") {
+export function useSessions(filters: SessionFilters = {}) {
   const db = getSessionsDbSync();
+  const {
+    searchTerm = "",
+    statuses,
+    pendingOnly = false,
+    dateFilter = null,
+    hasPR = false,
+  } = filters;
   const term = searchTerm.trim().toLowerCase();
 
   const query = useLiveQuery(
@@ -20,20 +48,28 @@ export function useSessions(searchTerm = "") {
         .from({ sessions: db.collections.sessions })
         .orderBy(({ sessions }) => sessions.lastActivityAt, "desc");
 
-      if (!term) return base;
+      const statusList = statuses && statuses.size > 0 ? [...statuses] : null;
+      const hasFilters = term || statusList || pendingOnly || dateFilter || hasPR;
+      if (!hasFilters) return base;
 
-      return base.where(({ sessions }) =>
-        or(
-          ilike(sessions.cwd, `%${term}%`),
-          ilike(sessions.goal, `%${term}%`)
-        )
-      );
+      return base.where(({ sessions }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let result: any = null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const add = (cond: any) => { result = result ? and(result, cond) : cond; };
+
+        if (term) add(or(ilike(sessions.cwd, `%${term}%`), ilike(sessions.goal, `%${term}%`)));
+        if (statusList) add(inArray(sessions.status, statusList));
+        if (pendingOnly) add(eq(sessions.hasPendingToolUse, true));
+        if (dateFilter) add(gte(sessions.lastActivityAt, getDateCutoff(dateFilter)));
+        if (hasPR) add(not(isNull(sessions.pr)));
+
+        return result;
+      });
     },
-    [db, term]
+    [db, term, statuses, pendingOnly, dateFilter, hasPR]
   );
 
-  // Transform to array of sessions
-  // The query.data is a Map where values are the session objects directly
   const sessions: Session[] = query?.data
     ? Array.from(query.data.values())
     : [];
@@ -73,32 +109,36 @@ function calculateRepoActivityScore(sessions: Session[]): number {
   }, 0);
 }
 
-export interface RepoGroup {
-  repoId: string;
+export interface PathGroup {
+  path: string;
+  displayPath: string;
   repoUrl: string | null;
   sessions: Session[];
   activityScore: number;
 }
 
 /**
- * Group sessions by repo, sorted by activity score
+ * Group sessions by local directory (cwd), sorted by activity score
  */
-export function groupSessionsByRepo(sessions: Session[]): RepoGroup[] {
+export function groupSessionsByPath(sessions: Session[]): PathGroup[] {
   const groups = new Map<string, Session[]>();
 
   for (const session of sessions) {
-    const key = session.gitRepoId ?? "Other";
-    const existing = groups.get(key) ?? [];
+    const existing = groups.get(session.cwd) ?? [];
     existing.push(session);
-    groups.set(key, existing);
+    groups.set(session.cwd, existing);
   }
 
-  const groupsWithScores = Array.from(groups.entries()).map(([key, sessions]) => ({
-    repoId: key,
-    repoUrl: key === "Other" ? null : `https://github.com/${key}`,
-    sessions,
-    activityScore: calculateRepoActivityScore(sessions),
-  }));
+  const groupsWithScores = Array.from(groups.entries()).map(([path, sessions]) => {
+    const repoUrl = sessions.find((s) => s.gitRepoUrl)?.gitRepoUrl ?? null;
+    return {
+      path,
+      displayPath: path.replace(/^\/Users\/[^/]+/, "~"),
+      repoUrl,
+      sessions,
+      activityScore: calculateRepoActivityScore(sessions),
+    };
+  });
 
   groupsWithScores.sort((a, b) => b.activityScore - a.activityScore);
 

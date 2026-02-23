@@ -112,31 +112,14 @@ function getCIStatusColor(status: CIStatus): "green" | "red" | "yellow" | "gray"
 
 export function SessionCard({ session, disableHover }: SessionCardProps) {
   const showPendingTool = session.hasPendingToolUse && session.pendingTool;
-  // Show path from ~ (e.g., ~/programs/project)
-  const dirPath = session.cwd.replace(/^\/Users\/[^/]+/, "~");
 
   return (
     <HoverCard.Root openDelay={750} open={disableHover ? false : undefined}>
       <HoverCard.Trigger>
         <Card size="2" className={getCardClass(session)}>
-          <Flex direction="column" gap="4">
-            {/* Header: directory and time */}
-            <Flex justify="between" align="center">
-              <Text size="1" color="gray" style={{ fontFamily: "var(--code-font-family)" }}>
-                {dirPath}
-              </Text>
-              <Text size="1" color="gray">
-                {formatTimeAgo(session.lastActivityAt)}
-              </Text>
-            </Flex>
-
-            {/* Main content: goal as primary text */}
-            <Heading size="3" weight="medium" highContrast>
-              {session.goal || session.originalPrompt.slice(0, 50)}
-            </Heading>
-
-            {/* Secondary: current activity (pending tool or summary) */}
-            {showPendingTool ? (
+          <Flex direction="column" gap="3">
+            {/* Pending tool indicator */}
+            {showPendingTool && (
               <Flex align="center" gap="2">
                 <Text size="1" color="gray">
                   {toolIcons[session.pendingTool!.tool]}
@@ -145,13 +128,14 @@ export function SessionCard({ session, disableHover }: SessionCardProps) {
                   {session.pendingTool!.tool}: {formatTarget(session.pendingTool!.target)}
                 </Code>
               </Flex>
-            ) : (
-              <Text size="1" color="gray">
-                {session.summary}
-              </Text>
             )}
 
-            {/* Footer: branch/PR info and message count */}
+            {/* Title */}
+            <Heading size="3" weight="medium" highContrast>
+              {session.goal || session.originalPrompt.slice(0, 50)}
+            </Heading>
+
+            {/* Footer: branch/PR, time, message count */}
             <Flex align="center" justify="between" gap="2">
               <Flex align="center" gap="2">
                 {session.pr ? (
@@ -168,15 +152,16 @@ export function SessionCard({ session, disableHover }: SessionCardProps) {
                   </a>
                 ) : session.gitBranch ? (
                   <Code size="1" variant="soft" color="gray">
-                    {session.gitBranch.length > 20
-                      ? session.gitBranch.slice(0, 17) + "..."
+                    🌿 {session.gitBranch.length > 18
+                      ? session.gitBranch.slice(0, 15) + "..."
                       : session.gitBranch}
                   </Code>
                 ) : null}
               </Flex>
-              <Text size="1" color="gray">
-                {session.messageCount} msgs
-              </Text>
+              <Flex align="center" gap="3">
+                <Text size="1" color="gray">⏱️ {formatTimeAgo(session.lastActivityAt)}</Text>
+                <Text size="1" color="gray">💬 {session.messageCount}</Text>
+              </Flex>
             </Flex>
           </Flex>
         </Card>

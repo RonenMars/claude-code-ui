@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Flex, Heading, Link, Text, Separator } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text, Separator } from "@radix-ui/themes";
 import { KanbanColumn } from "./KanbanColumn";
 import type { Session, SessionStatus } from "../data/schema";
 
@@ -17,17 +17,17 @@ function getEffectiveStatus(session: Session): SessionStatus {
   return session.status;
 }
 
-interface RepoSectionProps {
-  repoId: string;
+interface PathSectionProps {
+  path: string;
+  displayPath: string;
   repoUrl: string | null;
   sessions: Session[];
   activityScore: number;
 }
 
-export function RepoSection({ repoId, repoUrl, sessions, activityScore }: RepoSectionProps) {
+export function RepoSection({ path, displayPath, repoUrl, sessions, activityScore }: PathSectionProps) {
   const [collapsed, setCollapsed] = useState(true);
 
-  // Use effective status to categorize sessions (accounts for time-based idle)
   const working = sessions.filter((s) => getEffectiveStatus(s) === "working");
   const needsApproval = sessions.filter(
     (s) => getEffectiveStatus(s) === "waiting" && s.hasPendingToolUse
@@ -51,28 +51,36 @@ export function RepoSection({ repoId, repoUrl, sessions, activityScore }: RepoSe
         <Text size="2" color="gray" style={{ width: 12, flexShrink: 0 }}>
           {collapsed ? "▶" : "▼"}
         </Text>
+
         <Heading size="5" weight="bold">
-          {repoId === "Other" ? (
-            <Text color="gray">Other</Text>
-          ) : repoUrl ? (
-            <Link
-              href={repoUrl}
-              target="_blank"
-              color="violet"
-              highContrast
-              onClick={(e) => e.stopPropagation()}
-            >
-              {repoId}
-            </Link>
-          ) : (
-            repoId
-          )}
+          <a
+            href={`file://${path}`}
+            onClick={(e) => e.stopPropagation()}
+            style={{ textDecoration: "none", color: "inherit" }}
+          >
+            📁 {displayPath}
+          </a>
         </Heading>
+
+        {repoUrl && (
+          <a
+            href={repoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title="Open repository"
+            style={{ lineHeight: 1, textDecoration: "none" }}
+          >
+            <Text size="2">🔗</Text>
+          </a>
+        )}
+
         {isHot && (
           <Text size="2" color="orange">
             🔥
           </Text>
         )}
+
         <Text size="2" color="gray">
           {sessions.length} session{sessions.length !== 1 ? "s" : ""}
         </Text>
