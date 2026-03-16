@@ -3,25 +3,28 @@ import { ilike, or, and, inArray, gte, eq, not, isNull } from "@tanstack/db";
 import { getSessionsDbSync } from "../data/sessionsDb";
 import type { Session } from "../data/schema";
 
-export type DateFilter = "today" | "3days" | "week" | "month";
+export type HourFilter = "0.5h" | "1h" | "2h" | "4h" | "8h" | "24h" | "48h";
 
 export interface SessionFilters {
   searchTerm?: string;
   statuses?: Set<string>;
   pendingOnly?: boolean;
-  dateFilter?: DateFilter | null;
+  hourFilter?: HourFilter | null;
   hasPR?: boolean;
 }
 
-function getDateCutoff(filter: DateFilter): string {
-  const now = new Date();
-  if (filter === "today") {
-    now.setHours(0, 0, 0, 0);
-  } else {
-    const days = { "3days": 3, week: 7, month: 30 }[filter];
-    now.setDate(now.getDate() - days);
-  }
-  return now.toISOString();
+const HOUR_FILTER_MS: Record<HourFilter, number> = {
+  "0.5h": 0.5 * 3600000,
+  "1h": 1 * 3600000,
+  "2h": 2 * 3600000,
+  "4h": 4 * 3600000,
+  "8h": 8 * 3600000,
+  "24h": 24 * 3600000,
+  "48h": 48 * 3600000,
+};
+
+function getHourCutoff(filter: HourFilter): string {
+  return new Date(Date.now() - HOUR_FILTER_MS[filter]).toISOString();
 }
 
 /**
@@ -37,7 +40,7 @@ export function useSessions(filters: SessionFilters = {}) {
     searchTerm = "",
     statuses,
     pendingOnly = false,
-    dateFilter = null,
+    hourFilter = null,
     hasPR = false,
   } = filters;
   const term = searchTerm.trim().toLowerCase();
@@ -49,7 +52,7 @@ export function useSessions(filters: SessionFilters = {}) {
         .orderBy(({ sessions }) => sessions.lastActivityAt, "desc");
 
       const statusList = statuses && statuses.size > 0 ? [...statuses] : null;
-      const hasFilters = term || statusList || pendingOnly || dateFilter || hasPR;
+      const hasFilters = term || statusList || pendingOnly || hourFilter || hasPR;
       if (!hasFilters) return base;
 
       return base.where(({ sessions }) => {
@@ -61,13 +64,13 @@ export function useSessions(filters: SessionFilters = {}) {
         if (term) add(or(ilike(sessions.cwd, `%${term}%`), ilike(sessions.goal, `%${term}%`)));
         if (statusList) add(inArray(sessions.status, statusList));
         if (pendingOnly) add(eq(sessions.hasPendingToolUse, true));
-        if (dateFilter) add(gte(sessions.lastActivityAt, getDateCutoff(dateFilter)));
+        if (hourFilter) add(gte(sessions.lastActivityAt, getHourCutoff(hourFilter)));
         if (hasPR) add(not(isNull(sessions.pr)));
 
         return result;
       });
     },
-    [db, term, statuses, pendingOnly, dateFilter, hasPR]
+    [db, term, statuses, pendingOnly, hourFilter, hasPR]
   );
 
   const sessions: Session[] = query?.data
