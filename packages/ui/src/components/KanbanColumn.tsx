@@ -8,6 +8,7 @@ interface KanbanColumnProps {
   status: SessionStatus | "needs-approval";
   sessions: Session[];
   color: "green" | "orange" | "yellow" | "gray";
+  scrollHeight?: number | string;
 }
 
 const headerClassMap = {
@@ -17,7 +18,7 @@ const headerClassMap = {
   gray: "column-header-idle",
 };
 
-export function KanbanColumn({ title, sessions, color }: KanbanColumnProps) {
+export function KanbanColumn({ title, sessions, color, scrollHeight = 420 }: KanbanColumnProps) {
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -91,7 +92,7 @@ export function KanbanColumn({ title, sessions, color }: KanbanColumnProps) {
           </Text>
         </Flex>
 
-        <ScrollArea style={{ maxHeight: 420 }} ref={scrollAreaRef}>
+        <ScrollArea style={{ maxHeight: scrollHeight }} ref={scrollAreaRef}>
           <Flex direction="column" gap="2" pr="2">
             {sessions.map((session) => (
               <SessionCard
